@@ -1,8 +1,9 @@
 // the actual logic (like controllers)
 
-use axum::{extract::State, Json};
+use axum::{extract::State, Extension, Json};
 use sqlx::PgPool;
-use crate::models::event::Event;
+use crate::middleware::auth::Tenant;
+use crate::models::event::EventInput;
 
 // pub async fn create_event(Json(payload): Json<Event>) -> &'static str {
 //     println!("Received event: {:?}", payload);
@@ -11,10 +12,11 @@ use crate::models::event::Event;
 
 pub async fn create_event(
     State(pool): State<PgPool>,
-    Json(payload): Json<Event>,
+    Extension(tenant): Extension<Tenant>,
+    Json(payload): Json<EventInput>,
 ) -> &'static str {
     sqlx::query("INSERT INTO events (tenant_id, event_type) VALUES ($1, $2)")
-        .bind(&payload.tenant_id)
+        .bind(&tenant.tenant_id)
         .bind(&payload.event_type)
         .execute(&pool)
         .await

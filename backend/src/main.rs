@@ -2,10 +2,13 @@
 
 mod models;
 mod handlers;
+mod middleware;
 
 use axum::{routing::{get, post}, Router};
 use handlers::events::{create_event, health_check};
 use sqlx::postgres::PgPoolOptions;
+use axum::middleware as axum_middleware;
+use middleware::auth::require_api_key;
 
 #[tokio::main]
 async fn main() {
@@ -20,6 +23,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/events", post(create_event))
+        .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
         .route("/health", get(health_check))
         .with_state(pool);
 

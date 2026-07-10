@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Event {
-    pub tenant_id: String,
+pub struct EventInput {
     pub event_type: String,
 }
