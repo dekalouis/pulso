@@ -1,0 +1,6 @@
+#rust build output
+/target
+
+.env
+
+.DS_Store

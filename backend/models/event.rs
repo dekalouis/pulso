@@ -1,1 +1,0 @@
-// structs = models (event shape)
