@@ -2,8 +2,6 @@
 
 Pulso is a lightweight, self-hosted event ingestion and real-time analytics platform. Send events from your application to a single endpoint, scoped by tenant via API key, and query them back.
 
-See [`prd.md`](./prd.md) for the full product spec and roadmap.
-
 ## Prerequisites
 
 - Rust (via [rustup](https://rustup.rs)) — `cargo --version` should work
@@ -99,4 +97,4 @@ All tenant data is isolated: every query on `/events` is scoped by the `tenant_i
 
 ## Roadmap
 
-Current status: Phase 0–2 (skeleton, persistence, multi-tenancy & auth) are functionally complete. Next up per the PRD: Phase 3 (Redis-backed rolling counters, `GET /metrics`). See [`prd.md`](./prd.md#11-roadmap--phases) for the full phase breakdown.
+Current status: Phase 0–2 (skeleton, persistence, multi-tenancy & auth) are functionally complete. Next up per the PRD: Phase 3 (Redis-backed rolling counters, `GET /metrics`). 
