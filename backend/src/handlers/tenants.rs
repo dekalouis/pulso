@@ -1,12 +1,14 @@
 use axum::{extract::State, http::StatusCode, Json};
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
+// use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::tenant::{ApiKeyResponse, CreateTenantInput};
+use crate::state::AppState;
 
 pub async fn create_tenant(
-    State(pool): State<PgPool>,
+    // State(pool): State<PgPool>,
+    State(state): State<AppState>,
     Json(payload): Json<CreateTenantInput>,
 ) -> Result<Json<ApiKeyResponse>, StatusCode> {
     let tenant_id = format!("tenant-{}", Uuid::new_v4());
@@ -21,7 +23,7 @@ pub async fn create_tenant(
         .bind(&key_hash)
         .bind(&tenant_id)
         .bind(&tenant_name)
-        .execute(&pool)
+        .execute(&state.pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
