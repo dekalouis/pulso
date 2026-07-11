@@ -1,0 +1,71 @@
+[2026-07-11T04:33:32.196Z] RESULT
+============================================================
+{
+  "success": true,
+  "output": "Here's the performance analysis for Pulso as it stands today.\n\n---\n\n## Performance Analysis\n\nThe codebase is early-stage, so there are no complex patterns yet — but the foundation has a few meaningful issues worth addressing before they compound.\n\n---\n\n### 1. Auth middleware: DB hit on every request (highest priority)\n\n**File:** `backend/src/middleware/auth.rs:30`\n\nEvery single request — even `POST /events` at high volume — runs a `SELECT` against Postgres to validate the API key. For an event ingestion platform, this becomes the bottleneck before anything else.\n\nThe fix is an in-process cache (`DashMap` or `std::sync::RwLock<HashMap>`) from `key_hash → tenant_id`. API keys are read-only, so a TTL of 5–60 minutes is safe.\n\n```rust\n// Conceptual shape — cache in AppState\ntype ApiKeyCache = Arc<RwLock<HashMap<String, (String, Instant)>>>;\n\n// In middleware: check cache first, fall back to DB, populate cache on miss\nif let Some((tenant_id, inserted_at)) = cache.read().get(&key_hash) {\n    if inserted_at.elapsed() < Duration::from_secs(300) {\n        // cache hit — skip DB\n    }\n}\n```\n\nAdding Redis later would extend this to multi-instance deployments.\n\n---\n\n### 2. SHA-256 computed on every request\n\n**File:** `backend/src/middleware/auth.rs:26-28`\n\nThe hash is recomputed even when the same key is reused thousands of times. This is relatively cheap in isolation, but it's pure waste once the cache above exists — you'd hash once on first miss, then use the cached result thereafter. No action needed in isolation; it resolves with #1.\n\n---\n\n### 3. Missing index on `events.tenant_id`\n\n**File:** `backend/migrations/20260711040112_create_events_table.sql`\n\nThere's no index on `tenant_id`. When `GET /events` is built (Phase 1 gap) and analytics queries come in Phase 3, every query will do a full table scan. This becomes expensive fast.\n\n```sql\nCREATE INDEX idx_events_tenant_id ON events (tenant_id);\n-- Or a composite if you'll query by tenant + time:\nCREATE INDEX idx_events_tenant_created ON events (tenant_id, created_at DESC);\n```\n\n---\n\n### 4. Connection pool undersized for ingestion workload\n\n**File:** `backend/src/main.rs:18-22`\n\n`max_connections(5)` is fine for development but will cause queuing under any real load. Each auth middleware call and each insert holds a connection. At 5 connections, you'll queue at ~3 concurrent requests (auth + insert overlap).\n\nFor an ingestion service, 20–50 is more realistic. Rule of thumb: `(num_cpu_cores * 2) + effective_spindle_count`.\n\n---\n\n### 5. Synchronous single-row inserts on the hot path\n\n**File:** `backend/src/handlers/events.rs:18-22`\n\nEvery event is inserted individually and the HTTP response waits for it. This is correct for now but won't scale. The architectural direction here is:\n\n- **Short term:** batch inserts (accumulate N events then flush)\n- **Medium term:** write to Redis/queue first, acknowledge to client, drain to Postgres asynchronously\n\nThis is a Phase 3+ concern but worth knowing now so the handler signature doesn't get locked in.\n\n---\n\n### 6. React — nothing to optimize yet\n\n**File:** `frontend/src/App.tsx`\n\nThe frontend is the Vite starter template. One `useState(0)` counter, no data fetching, no component tree depth. No re-render issues, no memory leaks, no `useEffect` without cleanup. There's simply nothing here yet to optimize — this section will matter once dashboard components are built.\n\n---\n\n### 7. Panic on DB failure in hot path\n\n**File:** `backend/src/handlers/events.rs:22`\n\n`.expect(\"Failed to insert event\")` will crash the Tokio task on any DB error (transient network blip, connection timeout, etc.). This isn't a performance issue, but it affects availability under load. Return a proper `StatusCode::INTERNAL_SERVER_ERROR` instead. One panicking task doesn't crash the server in Axum, but it leaks the request and gives clients a connection reset rather than a 500.\n\n---\n\n### Priority order\n\n| # | Issue | Impact | Effort |\n|---|-------|--------|--------|\n| 1 | API key cache | High (removes DB call per request) | Low |\n| 2 | `events.tenant_id` index | High (future queries) | Trivial |\n| 3 | Connection pool size | Medium | Trivial |\n| 4 | Error handling on insert | Medium (reliability) | Low |\n| 5 | Batch/async writes | High (scale) | High — Phase 3+ |\n\nThe API key cache and the index are the two things worth doing now. Everything else is either resolved with Phase 3 work or resolves naturally as the frontend is built out.\n",
+  "parsedOutput": {
+    "sections": [
+      {
+        "title": "Performance Analysis",
+        "content": "\nThe codebase is early-stage, so there are no complex patterns yet — but the foundation has a few meaningful issues worth addressing before they compound.\n\n---\n\n",
+        "level": 2
+      },
+      {
+        "title": "1. Auth middleware: DB hit on every request (highest priority)",
+        "content": "\n**File:** `backend/src/middleware/auth.rs:30`\n\nEvery single request — even `POST /events` at high volume — runs a `SELECT` against Postgres to validate the API key. For an event ingestion platform, this becomes the bottleneck before anything else.\n\nThe fix is an in-process cache (`DashMap` or `std::sync::RwLock<HashMap>`) from `key_hash → tenant_id`. API keys are read-only, so a TTL of 5–60 minutes is safe.\n\n```rust\n// Conceptual shape — cache in AppState\ntype ApiKeyCache = Arc<RwLock<HashMap<String, (String, Instant)>>>;\n\n// In middleware: check cache first, fall back to DB, populate cache on miss\nif let Some((tenant_id, inserted_at)) = cache.read().get(&key_hash) {\n    if inserted_at.elapsed() < Duration::from_secs(300) {\n        // cache hit — skip DB\n    }\n}\n```\n\nAdding Redis later would extend this to multi-instance deployments.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "2. SHA-256 computed on every request",
+        "content": "\n**File:** `backend/src/middleware/auth.rs:26-28`\n\nThe hash is recomputed even when the same key is reused thousands of times. This is relatively cheap in isolation, but it's pure waste once the cache above exists — you'd hash once on first miss, then use the cached result thereafter. No action needed in isolation; it resolves with #1.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "3. Missing index on `events.tenant_id`",
+        "content": "\n**File:** `backend/migrations/20260711040112_create_events_table.sql`\n\nThere's no index on `tenant_id`. When `GET /events` is built (Phase 1 gap) and analytics queries come in Phase 3, every query will do a full table scan. This becomes expensive fast.\n\n```sql\nCREATE INDEX idx_events_tenant_id ON events (tenant_id);\n-- Or a composite if you'll query by tenant + time:\nCREATE INDEX idx_events_tenant_created ON events (tenant_id, created_at DESC);\n```\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "4. Connection pool undersized for ingestion workload",
+        "content": "\n**File:** `backend/src/main.rs:18-22`\n\n`max_connections(5)` is fine for development but will cause queuing under any real load. Each auth middleware call and each insert holds a connection. At 5 connections, you'll queue at ~3 concurrent requests (auth + insert overlap).\n\nFor an ingestion service, 20–50 is more realistic. Rule of thumb: `(num_cpu_cores * 2) + effective_spindle_count`.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "5. Synchronous single-row inserts on the hot path",
+        "content": "\n**File:** `backend/src/handlers/events.rs:18-22`\n\nEvery event is inserted individually and the HTTP response waits for it. This is correct for now but won't scale. The architectural direction here is:\n\n- **Short term:** batch inserts (accumulate N events then flush)\n- **Medium term:** write to Redis/queue first, acknowledge to client, drain to Postgres asynchronously\n\nThis is a Phase 3+ concern but worth knowing now so the handler signature doesn't get locked in.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "6. React — nothing to optimize yet",
+        "content": "\n**File:** `frontend/src/App.tsx`\n\nThe frontend is the Vite starter template. One `useState(0)` counter, no data fetching, no component tree depth. No re-render issues, no memory leaks, no `useEffect` without cleanup. There's simply nothing here yet to optimize — this section will matter once dashboard components are built.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "7. Panic on DB failure in hot path",
+        "content": "\n**File:** `backend/src/handlers/events.rs:22`\n\n`.expect(\"Failed to insert event\")` will crash the Tokio task on any DB error (transient network blip, connection timeout, etc.). This isn't a performance issue, but it affects availability under load. Return a proper `StatusCode::INTERNAL_SERVER_ERROR` instead. One panicking task doesn't crash the server in Axum, but it leaks the request and gives clients a connection reset rather than a 500.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "Priority order",
+        "content": "| # | Issue | Impact | Effort |\n|---|-------|--------|--------|\n| 1 | API key cache | High (removes DB call per request) | Low |\n| 2 | `events.tenant_id` index | High (future queries) | Trivial |\n| 3 | Connection pool size | Medium | Trivial |\n| 4 | Error handling on insert | Medium (reliability) | Low |\n| 5 | Batch/async writes | High (scale) | High — Phase 3+ |\n\nThe API key cache and the index are the two things worth doing now. Everything else is either resolved with Phase 3 work or resolves naturally as the frontend is built out.",
+        "level": 3
+      }
+    ],
+    "codeBlocks": [
+      {
+        "language": "rust",
+        "code": "// Conceptual shape — cache in AppState\ntype ApiKeyCache = Arc<RwLock<HashMap<String, (String, Instant)>>>;\n\n// In middleware: check cache first, fall back to DB, populate cache on miss\nif let Some((tenant_id, inserted_at)) = cache.read().get(&key_hash) {\n    if inserted_at.elapsed() < Duration::from_secs(300) {\n        // cache hit — skip DB\n    }\n}"
+      },
+      {
+        "language": "sql",
+        "code": "CREATE INDEX idx_events_tenant_id ON events (tenant_id);\n-- Or a composite if you'll query by tenant + time:\nCREATE INDEX idx_events_tenant_created ON events (tenant_id, created_at DESC);"
+      }
+    ]
+  },
+  "durationMs": 71023,
+  "model": "sonnet",
+  "sandboxMode": "permissive",
+  "workerType": "optimize",
+  "timestamp": "2026-07-11T04:33:32.195Z",
+  "executionId": "optimize_1783744341172_3t7pn9"
+}

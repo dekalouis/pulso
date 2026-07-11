@@ -1,0 +1,61 @@
+[2026-07-11T04:49:44.740Z] RESULT
+============================================================
+{
+  "success": true,
+  "output": "Here's a performance analysis of the codebase. I'll go through each category based on what actually exists today.\n\n---\n\n## Performance Analysis — Pulso\n\n### 1. N+1 Query Patterns\n\n**No N+1 queries exist yet**, but there's a single-query-per-request bottleneck that's worse in a different way:\n\nThe `require_api_key` middleware (`middleware/auth.rs:30`) fires a `SELECT tenant_id FROM api_keys WHERE key_hash = $1` on **every single request**. For a high-throughput event ingestion service, this doubles your DB round-trips — one to validate the key, one to write the event.\n\nThis isn't N+1 (N queries per item), but it's a structural query-per-request problem that will be the first thing to hurt you at scale.\n\n---\n\n### 2. Unnecessary Re-renders (React)\n\nThe frontend is still the Vite boilerplate — `App.tsx` has one `useState` for a counter and no child components. **There's nothing to optimize here yet.** This section becomes relevant once you build the actual dashboard (event tables, charts, tenant selectors).\n\nWhen you do build it, the patterns to watch for will be:\n- Passing new object literals as props on every render\n- Not memoizing expensive list transformations\n- Contexts that re-render the entire tree on any state change\n\n---\n\n### 3. Caching Opportunities\n\n**Biggest win available right now: cache API key lookups.**\n\nAPI keys are essentially static — they don't change per-request. Yet you're hitting Postgres on every call. The fix is an in-memory cache using a `DashMap<String, String>` (key_hash → tenant_id):\n\n```rust\n// Conceptually — add to AppState alongside pool\nstruct AppState {\n    pool: PgPool,\n    key_cache: Arc<DashMap<String, String>>,\n}\n\n// In middleware, check cache first\nif let Some(tenant_id) = key_cache.get(&key_hash) {\n    // skip the DB query\n}\n```\n\nSince Redis is in your planned stack (Phase 3), an even better path is Redis with a short TTL (5 min). This survives multiple server instances and allows key revocation to propagate within TTL window.\n\n**Second win: missing database index on `events.tenant_id`.**\n\nYour events table has no index on `tenant_id`. Once you implement `GET /events` (Phase 1, still missing per your CLAUDE.md), every query will do a full table scan. Add this in a new migration:\n\n```sql\nCREATE INDEX idx_events_tenant_id_created_at \nON events(tenant_id, created_at DESC);\n```\n\nThe composite `(tenant_id, created_at DESC)` is better than a single-column index because analytics queries will almost always filter by tenant AND sort/paginate by time.\n\n---\n\n### 4. Memory Leaks\n\n**Rust's ownership model prevents most memory leaks by design.** Nothing suspicious here.\n\nOne thing worth noting: `PgPoolOptions::max_connections(5)` in `main.rs:19` is very conservative. Under concurrent load, requests will queue waiting for a connection slot. Postgres can comfortably handle 20–50 connections from a single app — consider raising this to at least 10–20 before load testing.\n\n---\n\n### 5. Redundant Computations\n\n**SHA-256 is recomputed on every request** (`auth.rs:26-28`), even when the result will be the same for a repeat caller. This is cheap (SHA-256 is fast), but it's redundant work that disappears entirely once you add the cache from point 3 — the hash becomes the cache key, and you short-circuit before doing anything else.\n\n---\n\n## Priority Order\n\n| Priority | Issue | Impact |\n|---|---|---|\n| 1 | Add index on `events(tenant_id, created_at DESC)` | Prevents full table scans on every analytics query |\n| 2 | Cache API key lookups (in-memory or Redis) | Cuts DB round-trips in half per request |\n| 3 | Raise `max_connections` to 10–20 | Eliminates connection pool queuing under load |\n| 4 | SHA-256 redundancy | Solved automatically by #2 |\n\nThe index migration is the most urgent because you're about to add `GET /events` and without it you'll be scanning the full table on every read from day one.\n",
+  "parsedOutput": {
+    "sections": [
+      {
+        "title": "Performance Analysis — Pulso",
+        "content": "\n",
+        "level": 2
+      },
+      {
+        "title": "1. N+1 Query Patterns",
+        "content": "\n**No N+1 queries exist yet**, but there's a single-query-per-request bottleneck that's worse in a different way:\n\nThe `require_api_key` middleware (`middleware/auth.rs:30`) fires a `SELECT tenant_id FROM api_keys WHERE key_hash = $1` on **every single request**. For a high-throughput event ingestion service, this doubles your DB round-trips — one to validate the key, one to write the event.\n\nThis isn't N+1 (N queries per item), but it's a structural query-per-request problem that will be the first thing to hurt you at scale.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "2. Unnecessary Re-renders (React)",
+        "content": "\nThe frontend is still the Vite boilerplate — `App.tsx` has one `useState` for a counter and no child components. **There's nothing to optimize here yet.** This section becomes relevant once you build the actual dashboard (event tables, charts, tenant selectors).\n\nWhen you do build it, the patterns to watch for will be:\n- Passing new object literals as props on every render\n- Not memoizing expensive list transformations\n- Contexts that re-render the entire tree on any state change\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "3. Caching Opportunities",
+        "content": "\n**Biggest win available right now: cache API key lookups.**\n\nAPI keys are essentially static — they don't change per-request. Yet you're hitting Postgres on every call. The fix is an in-memory cache using a `DashMap<String, String>` (key_hash → tenant_id):\n\n```rust\n// Conceptually — add to AppState alongside pool\nstruct AppState {\n    pool: PgPool,\n    key_cache: Arc<DashMap<String, String>>,\n}\n\n// In middleware, check cache first\nif let Some(tenant_id) = key_cache.get(&key_hash) {\n    // skip the DB query\n}\n```\n\nSince Redis is in your planned stack (Phase 3), an even better path is Redis with a short TTL (5 min). This survives multiple server instances and allows key revocation to propagate within TTL window.\n\n**Second win: missing database index on `events.tenant_id`.**\n\nYour events table has no index on `tenant_id`. Once you implement `GET /events` (Phase 1, still missing per your CLAUDE.md), every query will do a full table scan. Add this in a new migration:\n\n```sql\nCREATE INDEX idx_events_tenant_id_created_at \nON events(tenant_id, created_at DESC);\n```\n\nThe composite `(tenant_id, created_at DESC)` is better than a single-column index because analytics queries will almost always filter by tenant AND sort/paginate by time.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "4. Memory Leaks",
+        "content": "\n**Rust's ownership model prevents most memory leaks by design.** Nothing suspicious here.\n\nOne thing worth noting: `PgPoolOptions::max_connections(5)` in `main.rs:19` is very conservative. Under concurrent load, requests will queue waiting for a connection slot. Postgres can comfortably handle 20–50 connections from a single app — consider raising this to at least 10–20 before load testing.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "5. Redundant Computations",
+        "content": "\n**SHA-256 is recomputed on every request** (`auth.rs:26-28`), even when the result will be the same for a repeat caller. This is cheap (SHA-256 is fast), but it's redundant work that disappears entirely once you add the cache from point 3 — the hash becomes the cache key, and you short-circuit before doing anything else.\n\n---\n\n",
+        "level": 3
+      },
+      {
+        "title": "Priority Order",
+        "content": "| Priority | Issue | Impact |\n|---|---|---|\n| 1 | Add index on `events(tenant_id, created_at DESC)` | Prevents full table scans on every analytics query |\n| 2 | Cache API key lookups (in-memory or Redis) | Cuts DB round-trips in half per request |\n| 3 | Raise `max_connections` to 10–20 | Eliminates connection pool queuing under load |\n| 4 | SHA-256 redundancy | Solved automatically by #2 |\n\nThe index migration is the most urgent because you're about to add `GET /events` and without it you'll be scanning the full table on every read from day one.",
+        "level": 2
+      }
+    ],
+    "codeBlocks": [
+      {
+        "language": "rust",
+        "code": "// Conceptually — add to AppState alongside pool\nstruct AppState {\n    pool: PgPool,\n    key_cache: Arc<DashMap<String, String>>,\n}\n\n// In middleware, check cache first\nif let Some(tenant_id) = key_cache.get(&key_hash) {\n    // skip the DB query\n}"
+      },
+      {
+        "language": "sql",
+        "code": "CREATE INDEX idx_events_tenant_id_created_at \nON events(tenant_id, created_at DESC);"
+      }
+    ]
+  },
+  "durationMs": 72536,
+  "model": "sonnet",
+  "sandboxMode": "permissive",
+  "workerType": "optimize",
+  "timestamp": "2026-07-11T04:49:44.739Z",
+  "executionId": "optimize_1783745312203_5r26xq"
+}

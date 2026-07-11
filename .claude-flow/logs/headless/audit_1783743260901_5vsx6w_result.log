@@ -1,0 +1,92 @@
+[2026-07-11T04:15:18.754Z] RESULT
+============================================================
+{
+  "success": true,
+  "output": "Now let me analyze the security findings. I'll generate a comprehensive report based on my analysis.\n\n```json\n{\n  \"vulnerabilities\": [\n    {\n      \"severity\": \"high\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/.env\",\n      \"line\": 1,\n      \"description\": \"Hardcoded database credentials in .env file. Default weak credentials (username: 'pulso', password: 'pulso') are exposed in version control. .env file is tracked in git.\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/handlers/events.rs\",\n      \"line\": 18,\n      \"description\": \"No input validation on EventInput. The 'event_type' field is directly inserted into SQL query without length limits or sanitization. Could allow injection or DoS via extremely long strings.\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/handlers/events.rs\",\n      \"line\": 22,\n      \"description\": \"Unrecoverable error handling with `.expect()` will crash server on database failures. No proper error response returned to client. Should return 500 status instead.\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/handlers/events.rs\",\n      \"line\": 13,\n      \"description\": \"Missing rate limiting on POST /events endpoint. Unauthenticated requests could be DDoS attacked once auth is bypassed, or legitimate users could be rate-limited by competitors.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/main.rs\",\n      \"line\": 32,\n      \"description\": \"Server binds to 0.0.0.0:3000 with no TLS/HTTPS. All traffic including API keys is transmitted in plaintext over the network.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/middleware/auth.rs\",\n      \"line\": 36,\n      \"description\": \"Generic error handling: .map_err(|_| ...) hides database errors. Should distinguish between 'key not found' (auth failure) and 'database error' (server error).\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/Cargo.toml\",\n      \"line\": 4,\n      \"description\": \"Invalid Rust edition '2024'. Valid editions are 2015, 2018, 2021. This will fail to compile. Should be '2021'.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/middleware/auth.rs\",\n      \"line\": 20,\n      \"description\": \"API key passed as HTTP header in plain text. No validation of header format/length. XSS-safe in Rust, but header injection could be possible with newlines.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"/home/dekalouis/Developer/pulso/backend/src/main.rs\",\n      \"line\": 32,\n      \"description\": \"Unhandled errors on server startup (.unwrap()). If port is already in use or listener fails, no graceful error message.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"/home/dekalouis/Developer/pulso/.gitignore\",\n      \"line\": 0,\n      \"description\": \"No .gitignore file found in project root. Environment files and secrets are at risk of being committed.\"\n    }\n  ],\n  \"riskScore\": 72,\n  \"recommendations\": [\n    \"🔴 CRITICAL: Remove .env file from git history immediately (git filter-branch or BFG). Add .env to .gitignore. Rotate database credentials.\",\n    \"🔴 CRITICAL: Add input validation to EventInput: max length constraints (e.g., max 255 chars for event_type), required field validation.\",\n    \"🔴 CRITICAL: Implement proper error handling: replace .expect() with Result<> returns. Return HTTP 500 on database errors instead of panicking.\",\n    \"🔴 CRITICAL: Add rate limiting middleware (e.g., using tower-governor). Limit to ~100 requests/minute per API key.\",\n    \"🔴 CRITICAL: Fix Cargo.toml edition to '2021' (not '2024'). Verify the project compiles.\",\n    \"🟡 HIGH: Enable HTTPS/TLS in production. Use reverse proxy (nginx) or Axum's built-in TLS support. Never transmit API keys over HTTP.\",\n    \"🟡 HIGH: Add CORS validation. Currently accepts requests from any origin. Restrict to specific frontend domains.\",\n    \"🟡 MEDIUM: Improve database error handling in auth middleware to distinguish between auth failures and server errors.\",\n    \"🟡 MEDIUM: Add request size limits to prevent large payload attacks (e.g., tower's LimitBodySize middleware).\",\n    \"🟡 MEDIUM: Add structured logging instead of println!(). Log auth failures and errors for auditing.\",\n    \"🟠 LOW: Add graceful error handling for server startup failures.\",\n    \"🟠 LOW: Add request ID tracking/correlation IDs for debugging.\",\n    \"📋 MAINTENANCE: Add security headers (X-Content-Type-Options, X-Frame-Options, CSP) via middleware.\"\n  ]\n}\n```\n\n## Summary\n\nYour project has **10 vulnerabilities identified**, with **5 critical/high-severity issues**:\n\n### Most Urgent Fixes:\n1. **Remove `.env` from git** — credentials are exposed in version control history\n2. **Fix Cargo.toml edition** — won't compile with `2024`\n3. **Add input validation** — no length limits on event_type field\n4. **Replace `.expect()` crashes** — implement proper error responses\n5. **Add rate limiting** — prevent abuse of the API\n\nThe codebase is in early phase (Phase 1) and lacks production-hardening. Before deploying, focus on the critical items above.\n",
+  "parsedOutput": {
+    "vulnerabilities": [
+      {
+        "severity": "high",
+        "file": "/home/dekalouis/Developer/pulso/backend/.env",
+        "line": 1,
+        "description": "Hardcoded database credentials in .env file. Default weak credentials (username: 'pulso', password: 'pulso') are exposed in version control. .env file is tracked in git."
+      },
+      {
+        "severity": "high",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/handlers/events.rs",
+        "line": 18,
+        "description": "No input validation on EventInput. The 'event_type' field is directly inserted into SQL query without length limits or sanitization. Could allow injection or DoS via extremely long strings."
+      },
+      {
+        "severity": "high",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/handlers/events.rs",
+        "line": 22,
+        "description": "Unrecoverable error handling with `.expect()` will crash server on database failures. No proper error response returned to client. Should return 500 status instead."
+      },
+      {
+        "severity": "high",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/handlers/events.rs",
+        "line": 13,
+        "description": "Missing rate limiting on POST /events endpoint. Unauthenticated requests could be DDoS attacked once auth is bypassed, or legitimate users could be rate-limited by competitors."
+      },
+      {
+        "severity": "medium",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/main.rs",
+        "line": 32,
+        "description": "Server binds to 0.0.0.0:3000 with no TLS/HTTPS. All traffic including API keys is transmitted in plaintext over the network."
+      },
+      {
+        "severity": "medium",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/middleware/auth.rs",
+        "line": 36,
+        "description": "Generic error handling: .map_err(|_| ...) hides database errors. Should distinguish between 'key not found' (auth failure) and 'database error' (server error)."
+      },
+      {
+        "severity": "medium",
+        "file": "/home/dekalouis/Developer/pulso/backend/Cargo.toml",
+        "line": 4,
+        "description": "Invalid Rust edition '2024'. Valid editions are 2015, 2018, 2021. This will fail to compile. Should be '2021'."
+      },
+      {
+        "severity": "medium",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/middleware/auth.rs",
+        "line": 20,
+        "description": "API key passed as HTTP header in plain text. No validation of header format/length. XSS-safe in Rust, but header injection could be possible with newlines."
+      },
+      {
+        "severity": "low",
+        "file": "/home/dekalouis/Developer/pulso/backend/src/main.rs",
+        "line": 32,
+        "description": "Unhandled errors on server startup (.unwrap()). If port is already in use or listener fails, no graceful error message."
+      },
+      {
+        "severity": "low",
+        "file": "/home/dekalouis/Developer/pulso/.gitignore",
+        "line": 0,
+        "description": "No .gitignore file found in project root. Environment files and secrets are at risk of being committed."
+      }
+    ],
+    "riskScore": 72,
+    "recommendations": [
+      "🔴 CRITICAL: Remove .env file from git history immediately (git filter-branch or BFG). Add .env to .gitignore. Rotate database credentials.",
+      "🔴 CRITICAL: Add input validation to EventInput: max length constraints (e.g., max 255 chars for event_type), required field validation.",
+      "🔴 CRITICAL: Implement proper error handling: replace .expect() with Result<> returns. Return HTTP 500 on database errors instead of panicking.",
+      "🔴 CRITICAL: Add rate limiting middleware (e.g., using tower-governor). Limit to ~100 requests/minute per API key.",
+      "🔴 CRITICAL: Fix Cargo.toml edition to '2021' (not '2024'). Verify the project compiles.",
+      "🟡 HIGH: Enable HTTPS/TLS in production. Use reverse proxy (nginx) or Axum's built-in TLS support. Never transmit API keys over HTTP.",
+      "🟡 HIGH: Add CORS validation. Currently accepts requests from any origin. Restrict to specific frontend domains.",
+      "🟡 MEDIUM: Improve database error handling in auth middleware to distinguish between auth failures and server errors.",
+      "🟡 MEDIUM: Add request size limits to prevent large payload attacks (e.g., tower's LimitBodySize middleware).",
+      "🟡 MEDIUM: Add structured logging instead of println!(). Log auth failures and errors for auditing.",
+      "🟠 LOW: Add graceful error handling for server startup failures.",
+      "🟠 LOW: Add request ID tracking/correlation IDs for debugging.",
+      "📋 MAINTENANCE: Add security headers (X-Content-Type-Options, X-Frame-Options, CSP) via middleware."
+    ]
+  },
+  "durationMs": 57853,
+  "model": "haiku",
+  "sandboxMode": "strict",
+  "workerType": "audit",
+  "timestamp": "2026-07-11T04:15:18.754Z",
+  "executionId": "audit_1783743260901_5vsx6w"
+}

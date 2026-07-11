@@ -1,0 +1,120 @@
+[2026-07-11T04:28:10.115Z] RESULT
+============================================================
+{
+  "success": true,
+  "output": "## JSON Security Audit Report\n\n```json\n{\n  \"vulnerabilities\": [\n    {\n      \"severity\": \"critical\",\n      \"file\": \"backend/.env\",\n      \"line\": 1,\n      \"description\": \"Hardcoded database credentials with weak defaults (username: 'pulso', password: 'pulso'). Credentials should never be in version control.\",\n      \"remediation\": \"Use environment variables; rotate credentials to strong values; implement secrets management (HashiCorp Vault, AWS Secrets Manager)\"\n    },\n    {\n      \"severity\": \"critical\",\n      \"file\": \"backend/src/bin/seed.rs\",\n      \"line\": 17,\n      \"description\": \"Test API key 'test-key-123' hardcoded in source code. Will be committed to version control and accessible to anyone with repo access.\",\n      \"remediation\": \"Generate secure random keys; use key management service; never commit test credentials\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"backend/src/models/event.rs\",\n      \"line\": 6,\n      \"description\": \"EventInput struct has no validation constraints. Accepts arbitrary-length strings, enabling DoS via large payloads.\",\n      \"remediation\": \"Add max_length constraints; implement validation: #[validate(length(max = \\\"255\\\"))]\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"backend/src/handlers/events.rs\",\n      \"line\": 23,\n      \"description\": \"Unhandled database errors with .expect() cause server panics. Database failures crash the process instead of returning HTTP error.\",\n      \"remediation\": \"Replace .expect() with proper error handling; map database errors to HTTP 500 responses\"\n    },\n    {\n      \"severity\": \"high\",\n      \"file\": \"backend/src/main.rs\",\n      \"line\": 27,\n      \"description\": \"No rate limiting on POST /events endpoint. Authenticated users can send unlimited requests.\",\n      \"remediation\": \"Add tower::ServiceBuilder rate limiting middleware; limit by tenant_id; implement token bucket algorithm\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/main.rs\",\n      \"line\": 32,\n      \"description\": \"Plain HTTP only (0.0.0.0:3000). No TLS/HTTPS enforced. API keys transmitted in plaintext.\",\n      \"remediation\": \"Enable HTTPS in production; use rustls or OpenSSL; enforce HSTS header\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/handlers/events.rs\",\n      \"line\": 18,\n      \"description\": \"No explicit verification that users access only their own tenant data. Horizontal privilege escalation risk if auth bypassed.\",\n      \"remediation\": \"Add assertion in handler: assert_eq!(extracted_tenant_id, event.tenant_id); add integration tests for cross-tenant access prevention\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/migrations/20260711040112_create_events_table.sql\",\n      \"line\": 0,\n      \"description\": \"Missing index on tenant_id column. Will cause full table scans for GET /events queries.\",\n      \"remediation\": \"Create migration: CREATE INDEX idx_events_tenant_id ON events(tenant_id);\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/middleware/auth.rs\",\n      \"line\": 36,\n      \"description\": \"Generic error messages hide database failure details. Cannot distinguish auth failures from DB errors.\",\n      \"remediation\": \"Log full error internally; return generic error to client; implement structured logging\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"backend/src/main.rs\",\n      \"lines\": [22, 24, 32, 34],\n      \"description\": \"Multiple .unwrap() and .expect() calls in startup code. Server crashes on configuration errors.\",\n      \"remediation\": \"Replace with proper error handling; use anyhow or thiserror crate for error propagation\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"backend/src/main.rs\",\n      \"line\": 0,\n      \"description\": \"No security headers configured (X-Content-Type-Options, X-Frame-Options, CSP, HSTS)\",\n      \"remediation\": \"Add middleware to set security headers; use axum::middleware::Next\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"backend/src/bin/seed.rs\",\n      \"line\": 19,\n      \"description\": \"Using SHA256 for API key hashing. Should use bcrypt or Argon2.\",\n      \"remediation\": \"Switch to argon2 crate; use work_factor >= 2 for password hashing\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"backend/src/main.rs\",\n      \"line\": 19,\n      \"description\": \"Hardcoded max_connections(5) is too small for production.\",\n      \"remediation\": \"Make configurable via environment variable; increase to 20-50 based on load testing\"\n    }\n  ],\n  \"riskScore\": 72,\n  \"recommendations\": [\n    \"IMMEDIATE (This week): Remove test-key-123 from seed.rs; rotate database credentials\",\n    \"HIGH PRIORITY (Before production): Enable HTTPS/TLS; implement rate limiting; add input validation\",\n    \"IMPORTANT (Next sprint): Add security headers middleware; fix error handling panic points; add database indexes\",\n    \"SHOULD FIX (Backlog): Implement secrets management; add comprehensive logging; upgrade hashing to Argon2; add tenant isolation tests\",\n    \"PROCESS IMPROVEMENTS: Set up automated dependency scanning (cargo-audit, dependabot); add OWASP checklist to code review process; security testing in CI/CD\"\n  ]\n}\n```\n\n---\n\n### Key Takeaways\n\n**Risk Score: 72/100** (High risk — production deployment not recommended without addressing critical/high items)\n\n**Most Critical Issues:**\n1. Test API key hardcoded in source code (commit history exposure)\n2. Default database credentials (weak + in .env)\n3. Database errors cause crashes (availability risk)\n4. No rate limiting (authenticated DoS vector)\n5. No TLS (plaintext credential transmission)\n\n**Good News:**\n- No SQL injection vulnerabilities found (sqlx parameterization working correctly)\n- No XSS vulnerabilities (React not misusing innerHTML)\n- No vulnerable dependencies detected\n- .env file properly ignored from git\n\nThe codebase is early-stage (Phase 1) and shows good foundation patterns, but several security hardening steps are needed before production deployment.\n",
+  "parsedOutput": {
+    "vulnerabilities": [
+      {
+        "severity": "critical",
+        "file": "backend/.env",
+        "line": 1,
+        "description": "Hardcoded database credentials with weak defaults (username: 'pulso', password: 'pulso'). Credentials should never be in version control.",
+        "remediation": "Use environment variables; rotate credentials to strong values; implement secrets management (HashiCorp Vault, AWS Secrets Manager)"
+      },
+      {
+        "severity": "critical",
+        "file": "backend/src/bin/seed.rs",
+        "line": 17,
+        "description": "Test API key 'test-key-123' hardcoded in source code. Will be committed to version control and accessible to anyone with repo access.",
+        "remediation": "Generate secure random keys; use key management service; never commit test credentials"
+      },
+      {
+        "severity": "high",
+        "file": "backend/src/models/event.rs",
+        "line": 6,
+        "description": "EventInput struct has no validation constraints. Accepts arbitrary-length strings, enabling DoS via large payloads.",
+        "remediation": "Add max_length constraints; implement validation: #[validate(length(max = \"255\"))]"
+      },
+      {
+        "severity": "high",
+        "file": "backend/src/handlers/events.rs",
+        "line": 23,
+        "description": "Unhandled database errors with .expect() cause server panics. Database failures crash the process instead of returning HTTP error.",
+        "remediation": "Replace .expect() with proper error handling; map database errors to HTTP 500 responses"
+      },
+      {
+        "severity": "high",
+        "file": "backend/src/main.rs",
+        "line": 27,
+        "description": "No rate limiting on POST /events endpoint. Authenticated users can send unlimited requests.",
+        "remediation": "Add tower::ServiceBuilder rate limiting middleware; limit by tenant_id; implement token bucket algorithm"
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/main.rs",
+        "line": 32,
+        "description": "Plain HTTP only (0.0.0.0:3000). No TLS/HTTPS enforced. API keys transmitted in plaintext.",
+        "remediation": "Enable HTTPS in production; use rustls or OpenSSL; enforce HSTS header"
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/handlers/events.rs",
+        "line": 18,
+        "description": "No explicit verification that users access only their own tenant data. Horizontal privilege escalation risk if auth bypassed.",
+        "remediation": "Add assertion in handler: assert_eq!(extracted_tenant_id, event.tenant_id); add integration tests for cross-tenant access prevention"
+      },
+      {
+        "severity": "medium",
+        "file": "backend/migrations/20260711040112_create_events_table.sql",
+        "line": 0,
+        "description": "Missing index on tenant_id column. Will cause full table scans for GET /events queries.",
+        "remediation": "Create migration: CREATE INDEX idx_events_tenant_id ON events(tenant_id);"
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/middleware/auth.rs",
+        "line": 36,
+        "description": "Generic error messages hide database failure details. Cannot distinguish auth failures from DB errors.",
+        "remediation": "Log full error internally; return generic error to client; implement structured logging"
+      },
+      {
+        "severity": "low",
+        "file": "backend/src/main.rs",
+        "lines": [
+          22,
+          24,
+          32,
+          34
+        ],
+        "description": "Multiple .unwrap() and .expect() calls in startup code. Server crashes on configuration errors.",
+        "remediation": "Replace with proper error handling; use anyhow or thiserror crate for error propagation"
+      },
+      {
+        "severity": "low",
+        "file": "backend/src/main.rs",
+        "line": 0,
+        "description": "No security headers configured (X-Content-Type-Options, X-Frame-Options, CSP, HSTS)",
+        "remediation": "Add middleware to set security headers; use axum::middleware::Next"
+      },
+      {
+        "severity": "low",
+        "file": "backend/src/bin/seed.rs",
+        "line": 19,
+        "description": "Using SHA256 for API key hashing. Should use bcrypt or Argon2.",
+        "remediation": "Switch to argon2 crate; use work_factor >= 2 for password hashing"
+      },
+      {
+        "severity": "low",
+        "file": "backend/src/main.rs",
+        "line": 19,
+        "description": "Hardcoded max_connections(5) is too small for production.",
+        "remediation": "Make configurable via environment variable; increase to 20-50 based on load testing"
+      }
+    ],
+    "riskScore": 72,
+    "recommendations": [
+      "IMMEDIATE (This week): Remove test-key-123 from seed.rs; rotate database credentials",
+      "HIGH PRIORITY (Before production): Enable HTTPS/TLS; implement rate limiting; add input validation",
+      "IMPORTANT (Next sprint): Add security headers middleware; fix error handling panic points; add database indexes",
+      "SHOULD FIX (Backlog): Implement secrets management; add comprehensive logging; upgrade hashing to Argon2; add tenant isolation tests",
+      "PROCESS IMPROVEMENTS: Set up automated dependency scanning (cargo-audit, dependabot); add OWASP checklist to code review process; security testing in CI/CD"
+    ]
+  },
+  "durationMs": 171353,
+  "model": "haiku",
+  "sandboxMode": "strict",
+  "workerType": "audit",
+  "timestamp": "2026-07-11T04:28:10.115Z",
+  "executionId": "audit_1783743918762_gc5erw"
+}

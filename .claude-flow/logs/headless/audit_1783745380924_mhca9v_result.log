@@ -1,0 +1,77 @@
+[2026-07-11T04:51:50.739Z] RESULT
+============================================================
+{
+  "success": true,
+  "output": "Based on my comprehensive security audit of the codebase, here's the detailed JSON report:\n\n```json\n{\n  \"vulnerabilities\": [\n    {\n      \"severity\": \"high\",\n      \"file\": \"backend/src/handlers/events.rs\",\n      \"line\": 33,\n      \"description\": \"Incomplete function definition for 'events()' at line 33-36. This function declaration has no return type and will fail to compile. This indicates incomplete/uncommitted code that needs review before deployment.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/.env\",\n      \"line\": 1,\n      \"description\": \"Weak database credentials in DATABASE_URL: 'pulso:pulso' uses identical username and password. Not suitable for production. Use strong, randomly generated credentials.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/main.rs\",\n      \"line\": 32,\n      \"description\": \"Insecure default binding: Server binds to '0.0.0.0:3000' which exposes the API to all network interfaces. In production, bind to localhost or a specific interface only.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/handlers/events.rs\",\n      \"line\": 17,\n      \"description\": \"No input validation on EventInput.event_type field. String can be any length or contain any content. Should validate length, format, and sanitize before database insertion.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/middleware/auth.rs\",\n      \"line\": 15,\n      \"description\": \"No rate limiting on API key authentication endpoint. Vulnerable to brute force attacks against the API key lookup. Should implement rate limiting per IP/tenant.\"\n    },\n    {\n      \"severity\": \"medium\",\n      \"file\": \"backend/src/main.rs\",\n      \"line\": 1,\n      \"description\": \"No CORS configuration visible. If frontend and backend are on different origins, all origins will be rejected. Configure proper CORS policy to allow only trusted frontends.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"backend/Cargo.toml\",\n      \"line\": 4,\n      \"description\": \"Invalid edition value '2024'. Rust editions are 2015, 2018, or 2021. Should be 'edition = \\\"2021\\\"'. This will cause compilation failure.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"file\": \"backend/src/middleware/auth.rs\",\n      \"line\": 26,\n      \"description\": \"SHA256 hashing API keys without salt. While better than plaintext, consider using a dedicated key hashing function or bcrypt for additional security. Current implementation is acceptable for API keys but could be improved.\"\n    }\n  ],\n  \"riskScore\": 58,\n  \"recommendations\": [\n    \"CRITICAL: Fix the incomplete 'events()' function definition in handlers/events.rs before any deployment\",\n    \"Replace weak database credentials (pulso:pulso) with strong, randomly generated credentials. Use a secrets manager for production\",\n    \"Add input validation to EventInput.event_type: limit length (e.g., 255 chars), validate format, reject suspicious characters\",\n    \"Implement rate limiting on the /events endpoint - aim for 100 requests per minute per API key initially\",\n    \"Configure CORS explicitly to allow only your frontend domain(s): add 'Access-Control-Allow-Origin' header with specific domain\",\n    \"Bind to localhost or internal network only in development/staging (0.0.0.0 in dev is acceptable, but use specific IPs in prod)\",\n    \"Fix Cargo.toml edition from '2024' to '2021' to ensure compilation\",\n    \"Add request logging and monitoring to detect suspicious authentication patterns\",\n    \"Consider adding database connection encryption (sslmode=require in DATABASE_URL)\",\n    \"Add request size limits to prevent DoS attacks via large payloads\"\n  ]\n}\n```\n\n**Key Findings Summary:**\n\n✅ **Strengths:**\n- SQL queries use parameterized statements (prevents SQL injection)\n- API keys are hashed before storage\n- Secrets are properly .gitignored\n- React frontend has built-in XSS protection\n- Dependencies are from reputable sources\n\n🚨 **Critical Issues:**\n- Incomplete code in handlers (compilation will fail)\n- Weak default database password\n\n⚠️ **Significant Risks:**\n- No input validation on event data\n- No rate limiting on API auth (brute force vulnerable)\n- Insecure network binding (0.0.0.0)\n- Missing CORS configuration\n- Invalid Cargo.toml edition\n\nThe **riskScore of 58/100** reflects moderate security posture. The high-severity compilation error must be fixed first, then address the medium-severity issues around credentials, input validation, and network security.\n",
+  "parsedOutput": {
+    "vulnerabilities": [
+      {
+        "severity": "high",
+        "file": "backend/src/handlers/events.rs",
+        "line": 33,
+        "description": "Incomplete function definition for 'events()' at line 33-36. This function declaration has no return type and will fail to compile. This indicates incomplete/uncommitted code that needs review before deployment."
+      },
+      {
+        "severity": "medium",
+        "file": "backend/.env",
+        "line": 1,
+        "description": "Weak database credentials in DATABASE_URL: 'pulso:pulso' uses identical username and password. Not suitable for production. Use strong, randomly generated credentials."
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/main.rs",
+        "line": 32,
+        "description": "Insecure default binding: Server binds to '0.0.0.0:3000' which exposes the API to all network interfaces. In production, bind to localhost or a specific interface only."
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/handlers/events.rs",
+        "line": 17,
+        "description": "No input validation on EventInput.event_type field. String can be any length or contain any content. Should validate length, format, and sanitize before database insertion."
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/middleware/auth.rs",
+        "line": 15,
+        "description": "No rate limiting on API key authentication endpoint. Vulnerable to brute force attacks against the API key lookup. Should implement rate limiting per IP/tenant."
+      },
+      {
+        "severity": "medium",
+        "file": "backend/src/main.rs",
+        "line": 1,
+        "description": "No CORS configuration visible. If frontend and backend are on different origins, all origins will be rejected. Configure proper CORS policy to allow only trusted frontends."
+      },
+      {
+        "severity": "low",
+        "file": "backend/Cargo.toml",
+        "line": 4,
+        "description": "Invalid edition value '2024'. Rust editions are 2015, 2018, or 2021. Should be 'edition = \"2021\"'. This will cause compilation failure."
+      },
+      {
+        "severity": "low",
+        "file": "backend/src/middleware/auth.rs",
+        "line": 26,
+        "description": "SHA256 hashing API keys without salt. While better than plaintext, consider using a dedicated key hashing function or bcrypt for additional security. Current implementation is acceptable for API keys but could be improved."
+      }
+    ],
+    "riskScore": 58,
+    "recommendations": [
+      "CRITICAL: Fix the incomplete 'events()' function definition in handlers/events.rs before any deployment",
+      "Replace weak database credentials (pulso:pulso) with strong, randomly generated credentials. Use a secrets manager for production",
+      "Add input validation to EventInput.event_type: limit length (e.g., 255 chars), validate format, reject suspicious characters",
+      "Implement rate limiting on the /events endpoint - aim for 100 requests per minute per API key initially",
+      "Configure CORS explicitly to allow only your frontend domain(s): add 'Access-Control-Allow-Origin' header with specific domain",
+      "Bind to localhost or internal network only in development/staging (0.0.0.0 in dev is acceptable, but use specific IPs in prod)",
+      "Fix Cargo.toml edition from '2024' to '2021' to ensure compilation",
+      "Add request logging and monitoring to detect suspicious authentication patterns",
+      "Consider adding database connection encryption (sslmode=require in DATABASE_URL)",
+      "Add request size limits to prevent DoS attacks via large payloads"
+    ]
+  },
+  "durationMs": 129814,
+  "model": "haiku",
+  "sandboxMode": "strict",
+  "workerType": "audit",
+  "timestamp": "2026-07-11T04:51:50.739Z",
+  "executionId": "audit_1783745380924_mhca9v"
+}

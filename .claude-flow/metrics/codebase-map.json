@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-07-11T05:12:20.923Z",
+  "projectRoot": "/home/dekalouis/Developer/pulso",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1783746740923
+}

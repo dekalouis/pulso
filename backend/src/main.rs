@@ -5,7 +5,7 @@ mod handlers;
 mod middleware;
 
 use axum::{routing::{get, post}, Router};
-use handlers::events::{create_event, health_check};
+use handlers::events::{create_event, events, health_check};
 use sqlx::postgres::PgPoolOptions;
 use axum::middleware as axum_middleware;
 use middleware::auth::require_api_key;
@@ -21,8 +21,10 @@ async fn main() {
         .await
         .expect("Failed to connect to Postgres");
 
+    sqlx::migrate!("./migrations").run(&pool).await.expect("Failed to run migrations");
+
     let app = Router::new()
-        .route("/events", post(create_event))
+        .route("/events", post(create_event).get(events))
         .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
         .route("/health", get(health_check))
         .with_state(pool);
