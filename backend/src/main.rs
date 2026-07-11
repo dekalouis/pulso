@@ -4,12 +4,17 @@ mod models;
 mod handlers;
 mod middleware;
 mod routes;
+mod db;
+mod state;
+mod services;
 
 use axum::{routing::get, Router};
+use db::redis::create_redis_pool;
 use handlers::events::health_check;
 use sqlx::postgres::PgPoolOptions;
 // use axum::middleware as axum_middleware;
 // use middleware::auth::require_api_key;
+use crate::state::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -24,13 +29,18 @@ async fn main() {
 
     sqlx::migrate!("./migrations").run(&pool).await.expect("Failed to run migrations");
 
+    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL must be set");
+    let redis = create_redis_pool(&redis_url).await;
+
+    let state = AppState { pool, redis };
+
     let app = Router::new()
         // .route("/events", post(create_event).get(events))
         // .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
-        .merge(routes::event::routes(pool.clone()))
+        .merge(routes::event::routes(state.clone()))
         .merge(routes::tenant::routes())
         .route("/health", get(health_check))
-        .with_state(pool);
+        .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");

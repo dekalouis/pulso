@@ -5,7 +5,9 @@ use axum::{
     response::Response,
 };
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
+// use sqlx::PgPool;
+
+use crate::state::AppState;
 
 #[derive(Clone)]
 pub struct Tenant {
@@ -13,7 +15,8 @@ pub struct Tenant {
 }
 
 pub async fn require_api_key(
-    State(pool): State<PgPool>,
+    // State(pool): State<PgPool>,
+    State(state): State<AppState>,
     mut req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -31,7 +34,7 @@ pub async fn require_api_key(
         "SELECT tenant_id FROM api_keys WHERE key_hash = $1",
     )
     .bind(&key_hash)
-    .fetch_optional(&pool)
+    .fetch_optional(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
