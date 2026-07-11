@@ -3,12 +3,13 @@
 mod models;
 mod handlers;
 mod middleware;
+mod routes;
 
-use axum::{routing::{get, post}, Router};
-use handlers::events::{create_event, events, health_check};
+use axum::{routing::get, Router};
+use handlers::events::health_check;
 use sqlx::postgres::PgPoolOptions;
-use axum::middleware as axum_middleware;
-use middleware::auth::require_api_key;
+// use axum::middleware as axum_middleware;
+// use middleware::auth::require_api_key;
 
 #[tokio::main]
 async fn main() {
@@ -24,8 +25,10 @@ async fn main() {
     sqlx::migrate!("./migrations").run(&pool).await.expect("Failed to run migrations");
 
     let app = Router::new()
-        .route("/events", post(create_event).get(events))
-        .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
+        // .route("/events", post(create_event).get(events))
+        // .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
+        .merge(routes::event::routes(pool.clone()))
+        .merge(routes::tenant::routes())
         .route("/health", get(health_check))
         .with_state(pool);
 
