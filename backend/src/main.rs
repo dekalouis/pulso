@@ -34,11 +34,24 @@ async fn main() {
 
     let state = AppState { pool, redis };
 
+    let poll_state = state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            let mut redis = poll_state.redis.clone();
+            if let Err(e) = services::alerts::evaluate_rules(&poll_state.pool, &mut redis).await {
+                eprintln!("Alert evaluation error: {}", e);
+            }
+        }
+    });
+
     let app = Router::new()
         // .route("/events", post(create_event).get(events))
         // .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
         .merge(routes::event::routes(state.clone()))
         .merge(routes::tenant::routes())
+        .merge(routes::alerts::routes(state.clone()))
         .route("/health", get(health_check))
         .with_state(state.clone());
 

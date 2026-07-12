@@ -2,3 +2,4 @@
 
 pub mod event;
 pub mod tenant;
+pub mod alerts;
