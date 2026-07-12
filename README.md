@@ -23,7 +23,7 @@ Conceptually a self-hosted alternative to Mixpanel or PostHog, without vendor lo
 Create a role and database:
 ```
 psql -d postgres -c "CREATE USER pulso WITH PASSWORD 'pulso' SUPERUSER;"
-createdb -O pulso pulso
+psql -d postgres -c "CREATE DATABASE pulso OWNER pulso;"
 ```
 
 ### 2. Environment

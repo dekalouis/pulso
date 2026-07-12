@@ -12,9 +12,11 @@ use axum::{routing::get, Router};
 use db::redis::create_redis_pool;
 use handlers::events::health_check;
 use sqlx::postgres::PgPoolOptions;
+use tower_http::cors::{CorsLayer, Any};
 // use axum::middleware as axum_middleware;
 // use middleware::auth::require_api_key;
 use crate::state::AppState;
+use axum::http::Method;
 
 #[tokio::main]
 async fn main() {
@@ -46,6 +48,11 @@ async fn main() {
         }
     });
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::GET, Method::POST, Method::DELETE])
+        .allow_headers(Any);
+
     let app = Router::new()
         // .route("/events", post(create_event).get(events))
         // .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
@@ -53,6 +60,7 @@ async fn main() {
         .merge(routes::tenant::routes())
         .merge(routes::alerts::routes(state.clone()))
         .route("/health", get(health_check))
+        .layer(cors)
         .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
