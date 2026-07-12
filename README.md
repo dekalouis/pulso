@@ -1,100 +1,151 @@
 # Pulso
 
-Pulso is a lightweight, self-hosted event ingestion and real-time analytics platform. Send events from your application to a single endpoint, scoped by tenant via API key, and query them back.
+Pulso is a lightweight, self-hosted event ingestion and real-time analytics platform. Send events from any application, get rolling-window metrics, and set threshold-based alerts — all scoped per tenant via API key.
+
+A single Pulso instance supports multiple isolated tenants. It's domain-agnostic: e-commerce, SaaS, ridesharing, games — any event-driven workload.
+
+Conceptually a self-hosted alternative to Mixpanel or PostHog, without vendor lock-in or data leaving your infrastructure.
 
 ## Prerequisites
 
 - Rust (via [rustup](https://rustup.rs)) — `cargo --version` should work
 - PostgreSQL running locally (or in Docker) and reachable
-- `sqlx-cli`, for running migrations:
+- Redis running locally (or in Docker) — `redis-cli ping` should return `PONG`
+- `sqlx-cli` for running migrations:
   ```
   cargo install sqlx-cli --no-default-features --features postgres
   ```
 
-## Database setup
+## Setup
 
-1. Create a role and database for the project (adjust credentials as you like):
-   ```
-   psql -d postgres -c "CREATE USER pulso WITH PASSWORD 'pulso' SUPERUSER;"
-   createdb -O pulso pulso
-   ```
-2. In `backend/`, create a `.env` file:
-   ```
-   DATABASE_URL=postgres://pulso:pulso@localhost:5432/pulso
-   ```
+### 1. Database
 
-## Running migrations
-
-From `backend/`:
+Create a role and database:
 ```
+psql -d postgres -c "CREATE USER pulso WITH PASSWORD 'pulso' SUPERUSER;"
+createdb -O pulso pulso
+```
+
+### 2. Environment
+
+In `backend/`, create a `.env` file:
+```
+DATABASE_URL=postgres://pulso:pulso@localhost:5432/pulso
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+### 3. Migrations
+
+Migrations run automatically on server startup. To run them manually or to add new ones:
+```bash
+# from backend/
 sqlx migrate run
-```
-
-Migrations also run automatically on server startup (`sqlx::migrate!` in `main.rs`), so this step is mainly useful for inspecting/creating migrations ahead of time.
-
-To add a new migration:
-```
 sqlx migrate add <description>
 ```
 
 ## Running the backend
 
-From `backend/`:
-```
+```bash
+# from backend/
 cargo run
 ```
 
 Server listens on `http://localhost:3000`.
 
-### Seeding a test API key
+### Seed a test API key
 
-For local testing without going through tenant creation:
-```
+For local testing without creating a tenant through the API:
+```bash
 cargo run --bin seed
 ```
-This inserts a fixed test key (`test-key-123`) for `tenant-acme`.
+Inserts `test-key-123` for `tenant-acme`.
+
+## API
+
+All endpoints except `/health` and `POST /tenants` require an `x-api-key` header.
+
+### Tenants
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/tenants` | — | Create a tenant, get back a raw API key (shown once) |
+
+### Events
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/events` | ✓ | Ingest an event |
+| GET | `/events` | ✓ | List the last 100 events for this tenant |
+
+### Metrics
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/metrics` | ✓ | Rolling window counts per event type (1m / 5m / 1hr) |
+
+### Alerts
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/alert-rules` | ✓ | Create a threshold alert rule |
+| GET | `/alert-rules` | ✓ | List active alert rules |
+| DELETE | `/alert-rules/{id}` | ✓ | Soft-delete an alert rule |
+| GET | `/alerts` | ✓ | Alert event history (last 100) |
+
+### Health
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/health` | — | Service health check |
+
+## Quick start (end-to-end)
+
+### 1. Create a tenant
+```bash
+curl -X POST http://localhost:3000/tenants \
+  -H 'Content-Type: application/json' \
+  -d '{"tenant_name":"Acme Co"}'
+```
+Returns `{ "tenant_id": "...", "api_key": "...", "tenant_name": "Acme Co" }`. Save the `api_key` — it's shown once.
+
+### 2. Send events
+```bash
+curl -X POST http://localhost:3000/events \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: <your_api_key>' \
+  -d '{"event_type":"checkout"}'
+```
+
+### 3. Query rolling metrics
+```bash
+curl http://localhost:3000/metrics -H 'x-api-key: <your_api_key>'
+```
+Returns counts per event type across the last 1 minute, 5 minutes, and 1 hour.
+
+### 4. Create an alert rule
+Fires when `checkout` count exceeds 2 in the last minute:
+```bash
+curl -X POST http://localhost:3000/alert-rules \
+  -H 'Content-Type: application/json' \
+  -H 'x-api-key: <your_api_key>' \
+  -d '{"event_type":"checkout","rule_condition":"above","threshold":2,"time_window":"1m"}'
+```
+`rule_condition` accepts `"above"` or `"below"`. `time_window` accepts `"1m"`, `"5m"`, or `"1hr"`.
+
+### 5. Check alert history
+The background worker polls every 10 seconds. After the threshold is crossed:
+```bash
+curl http://localhost:3000/alerts -H 'x-api-key: <your_api_key>'
+```
+Returns alert events with `triggered_at` and `resolved_at` (null while open). Alerts auto-resolve when the condition clears.
+
+## How it works
+
+- **Ingestion** — `POST /events` writes to Postgres, then spawns a background task to update a Redis sorted set. Ingestion latency is not blocked by Redis.
+- **Rolling windows** — Redis sorted sets keyed by `metrics:{tenant_id}:{event_type}`. Each member is scored by its timestamp in ms. `ZCOUNT` over the relevant window gives an exact rolling count; entries older than 1 hour are pruned on each write.
+- **Alerting** — A Tokio background task polls all active rules every 10 seconds. It's edge-triggered: fires once when the condition is first met, resolves automatically when it clears. Alert rules are soft-deleted to preserve history.
+- **Multi-tenancy** — All reads and writes are scoped to the `tenant_id` resolved from the API key. One tenant cannot access another's data.
 
 ## Frontend
 
-The frontend (`frontend/`) is a Vite + React + TypeScript scaffold — not yet wired to the backend. Once dependencies are installed:
-```
+The frontend (`frontend/`) is a Vite + React + TypeScript scaffold — not yet wired to the backend.
+```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-## App flow so far
-
-1. **Create a tenant** — `POST /tenants` with `{ "tenant_name": "..." }`. Returns a `tenant_id` and a raw `api_key`. The raw key is shown once; only its hash is stored.
-2. **Ingest an event** — `POST /events` with header `x-api-key: <your key>` and body `{ "event_type": "..." }`. The `require_api_key` middleware resolves the key to a tenant and scopes the insert to it.
-3. **List events** — `GET /events` with the same `x-api-key` header. Returns the last 100 events for that tenant only, most recent first.
-4. **Health check** — `GET /health`, no auth required.
-
-All tenant data is isolated: every query on `/events` is scoped by the `tenant_id` resolved from the API key, so one tenant can never read or write another tenant's events.
-
-### Try it end to end
-
-1. Create a tenant and grab the returned `api_key`:
-   ```
-   curl -X POST http://localhost:3000/tenants \
-     -H 'Content-Type: application/json' \
-     -d '{"tenant_name":"Acme Co"}'
-   ```
-   ```
-   { "tenant_id": "tenant-...", "api_key": "...", "tenant_name": "Acme Co" }
-   ```
-2. Send an event using that key:
-   ```
-   curl -X POST http://localhost:3000/events \
-     -H 'Content-Type: application/json' \
-     -H 'x-api-key: <api_key from step 1>' \
-     -d '{"event_type":"checkout"}'
-   ```
-3. List events for that tenant:
-   ```
-   curl http://localhost:3000/events -H 'x-api-key: <api_key from step 1>'
-   ```
-
-## Roadmap
-
-Current status: Phase 0–2 (skeleton, persistence, multi-tenancy & auth) are functionally complete. Next up per the PRD: Phase 3 (Redis-backed rolling counters, `GET /metrics`). 
