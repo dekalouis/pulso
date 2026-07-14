@@ -5,8 +5,8 @@ use redis::AsyncCommands;
 
 pub struct WindowCounts {
     pub one_min: i64,
-    // TODO pub five_min: i64,
-    // TODO pub one_hour: i64,
+    pub five_min: i64,
+    pub one_hour: i64,
 }
 
 pub async fn record_event(
@@ -39,14 +39,18 @@ pub async fn get_counts(
 
     let now_ms = chrono::Utc::now().timestamp_millis();
     let one_min_ago_ms = now_ms - 60_000;
+    let five_min_ago_ms = now_ms - 300_000;
+    let one_hour_ago_ms = now_ms - 3_600_000;
     let prefix = format!("metrics:{}:", tenant_id);
 
     let mut counts = HashMap::new();
 
     for key in keys {
         let event_type = key.trim_start_matches(&prefix).to_string();
-        let count: i64 = redis.zcount(&key, one_min_ago_ms, now_ms).await?;
-        counts.insert(event_type, WindowCounts { one_min: count });
+        let count_one_min: i64 = redis.zcount(&key, one_min_ago_ms, now_ms).await?;
+        let count_five_min: i64 = redis.zcount(&key, five_min_ago_ms, now_ms).await?;
+        let count_one_hour: i64 = redis.zcount(&key, one_hour_ago_ms, now_ms).await?;
+        counts.insert(event_type, WindowCounts { one_min: count_one_min, five_min: count_five_min, one_hour: count_one_hour });
     }
     Ok(counts)
 }
