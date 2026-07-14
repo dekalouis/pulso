@@ -23,13 +23,14 @@ pub async fn get_metrics(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let mut one_min: HashMap<String, i64> = HashMap::new();
+    let mut windows: HashMap<String, HashMap<String, i64>> = HashMap::new();
     for (event_type, window) in counts {
-        one_min.insert(event_type, window.one_min);
+        let mut w = HashMap::new();
+        w.insert("one_min".to_string(), window.one_min);
+        w.insert("five_min".to_string(), window.five_min);
+        w.insert("one_hour".to_string(), window.one_hour);
+        windows.insert(event_type, w);
     }
-
-    let mut windows = HashMap::new();
-    windows.insert("1m".to_string(), one_min);
 
     Ok(Json(MetricsResponse {
         tenant_id: tenant.tenant_id,
