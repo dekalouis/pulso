@@ -8,7 +8,12 @@ pub struct WindowCounts {
     pub fifteen_min: i64,
     pub one_hour: i64,
     pub one_day: i64,
+    /// (bucket_start_ms, count) for 60 one-minute buckets covering the last hour
+    pub series: Vec<(i64, i64)>,
 }
+
+const SERIES_BUCKETS: i64 = 60;
+const SERIES_BUCKET_MS: i64 = 60_000;
 
 pub async fn record_event(
     redis: &mut ConnectionManager,
@@ -52,11 +57,28 @@ pub async fn get_counts(
         let count_fifteen_min: i64 = redis.zcount(&key, fifteen_min_ago_ms, now_ms).await?;
         let count_one_hour: i64 = redis.zcount(&key, one_hour_ago_ms, now_ms).await?;
         let count_one_day: i64 = redis.zcount(&key, one_day_ago_ms, now_ms).await?;
-        counts.insert(event_type, WindowCounts { 
-            five_min: count_five_min, 
-            fifteen_min: count_fifteen_min, 
-            one_hour: count_one_hour, 
-            one_day: count_one_day 
+
+        let members: Vec<(String, f64)> = redis
+            .zrangebyscore_withscores(&key, one_hour_ago_ms, now_ms)
+            .await?;
+        let mut buckets = vec![0i64; SERIES_BUCKETS as usize];
+        for (_, score) in members {
+            let idx = ((score as i64 - one_hour_ago_ms) / SERIES_BUCKET_MS)
+                .clamp(0, SERIES_BUCKETS - 1) as usize;
+            buckets[idx] += 1;
+        }
+        let series = buckets
+            .into_iter()
+            .enumerate()
+            .map(|(i, count)| (one_hour_ago_ms + i as i64 * SERIES_BUCKET_MS, count))
+            .collect();
+
+        counts.insert(event_type, WindowCounts {
+            five_min: count_five_min,
+            fifteen_min: count_fifteen_min,
+            one_hour: count_one_hour,
+            one_day: count_one_day,
+            series,
         });
     }
     Ok(counts)

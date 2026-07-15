@@ -21,3 +21,7 @@ tower-http = { version = "0.6", features = ["cors"] }
 [[bin]]
 name = "seed"
 path = "src/bin/seed.rs"
+
+[[bin]]
+name = "flush"
+path = "src/bin/flush.rs"

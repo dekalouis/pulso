@@ -41,7 +41,11 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <MetricsChart eventType={eventType} windows={windows[eventType]} />
+                <MetricsChart
+                  eventType={eventType}
+                  windows={windows[eventType]}
+                  series={data?.series[eventType] ?? []}
+                />
               </CardContent>
             </Card>
           ))}

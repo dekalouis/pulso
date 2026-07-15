@@ -42,8 +42,8 @@ export default function Alerts() {
   }, []);
 
   async function handleDelete(id: string) {
+    setRules(rs => rs.filter(r => r.id !== id));
     await deleteAlertRule(id);
-    load();
   }
 
   async function handleCreate(e: React.FormEvent) {
