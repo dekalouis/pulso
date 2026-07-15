@@ -6,9 +6,10 @@ type Props = {
 };
 
 const WINDOW_LABELS: Record<string, string> = {
-  one_min: '1 min',
   five_min: '5 min',
+  fifteen_min: '15 min',
   one_hour: '1 hr',
+  one_day: '24 hr',
 };
 
 const MONO = 'IBM Plex Mono, ui-monospace, monospace';

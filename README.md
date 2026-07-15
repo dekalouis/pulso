@@ -78,7 +78,7 @@ All endpoints except `/health` and `POST /tenants` require an `x-api-key` header
 ### Metrics
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/metrics` | ✓ | Rolling window counts per event type (1m / 5m / 1hr) |
+| GET | `/metrics` | ✓ | Rolling window counts per event type (5m / 15m / 1h / 24h) |
 
 ### Alerts
 | Method | Path | Auth | Description |
@@ -115,17 +115,17 @@ curl -X POST http://localhost:3000/events \
 ```bash
 curl http://localhost:3000/metrics -H 'x-api-key: <your_api_key>'
 ```
-Returns counts per event type across the last 1 minute, 5 minutes, and 1 hour.
+Returns counts per event type across the last 5 minutes, 15 minutes, 1 hour, and 24 hours.
 
 ### 4. Create an alert rule
-Fires when `checkout` count exceeds 2 in the last minute:
+Fires when `checkout` count exceeds 2 in the last 5 minutes:
 ```bash
 curl -X POST http://localhost:3000/alert-rules \
   -H 'Content-Type: application/json' \
   -H 'x-api-key: <your_api_key>' \
-  -d '{"event_type":"checkout","rule_condition":"above","threshold":2,"time_window":"1m"}'
+  -d '{"event_type":"checkout","rule_condition":"above","threshold":2,"time_window":"5m"}'
 ```
-`rule_condition` accepts `"above"` or `"below"`. `time_window` accepts `"1m"`, `"5m"`, or `"1hr"`.
+`rule_condition` accepts `"above"` or `"below"`. `time_window` accepts `"5m"`, `"15m"`, `"1h"`, or `"24h"`.
 
 ### 5. Check alert history
 The background worker polls every 10 seconds. After the threshold is crossed:
@@ -137,7 +137,7 @@ Returns alert events with `triggered_at` and `resolved_at` (null while open). Al
 ## How it works
 
 - **Ingestion** — `POST /events` writes to Postgres, then spawns a background task to update a Redis sorted set. Ingestion latency is not blocked by Redis.
-- **Rolling windows** — Redis sorted sets keyed by `metrics:{tenant_id}:{event_type}`. Each member is scored by its timestamp in ms. `ZCOUNT` over the relevant window gives an exact rolling count; entries older than 1 hour are pruned on each write.
+- **Rolling windows** — Redis sorted sets keyed by `metrics:{tenant_id}:{event_type}`. Each member is scored by its timestamp in ms. `ZCOUNT` over the relevant window gives an exact rolling count; entries older than 24 hours are pruned on each write.
 - **Alerting** — A Tokio background task polls all active rules every 10 seconds. It's edge-triggered: fires once when the condition is first met, resolves automatically when it clears. Alert rules are soft-deleted to preserve history.
 - **Multi-tenancy** — All reads and writes are scoped to the `tenant_id` resolved from the API key. One tenant cannot access another's data.
 

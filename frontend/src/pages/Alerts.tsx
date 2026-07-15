@@ -27,7 +27,7 @@ export default function Alerts() {
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [events, setEvents] = useState<AlertEvent[]>([]);
   const [form, setForm] = useState<CreateAlertRuleInput>({
-    event_type: '', rule_condition: 'above', threshold: 1, time_window: '1m',
+    event_type: '', rule_condition: 'above', threshold: 1, time_window: '5m',
   });
 
   const load = () => {
@@ -100,9 +100,10 @@ export default function Alerts() {
                 onChange={e => setForm(f => ({ ...f, time_window: e.target.value }))}
                 className={selectClass}
               >
-                <option value="1m">1 min</option>
                 <option value="5m">5 min</option>
-                <option value="1hr">1 hr</option>
+                <option value="15m">15 min</option>
+                <option value="1h">1 hr</option>
+                <option value="24h">24 hr</option>
               </select>
             </div>
             <Button type="submit">Create rule</Button>

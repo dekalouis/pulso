@@ -12,7 +12,7 @@ use crate::models::alert::{AlertRule, AlertEvent, CreateAlertRuleInput};
 // - Map DB errors to `StatusCode::INTERNAL_SERVER_ERROR`
 
 // **`create_alert_rule`** — validates input (condition must be "above"/"below", 
-// window must be "1m"/"5m"/"1hr"), inserts into `alert_rules`, returns the created rule.
+// window must be "5m"/"15m"/"1h"/"24h"), inserts into `alert_rules`, returns the created rule.
 pub async fn create_alert_rule(
     State(state): State<AppState>,
     Extension(tenant): Extension<Tenant>,
@@ -21,7 +21,7 @@ pub async fn create_alert_rule(
     if payload.rule_condition != "above" && payload.rule_condition != "below" {
         return Err(StatusCode::BAD_REQUEST);
     }
-    if !["1m", "5m", "1hr"].contains(&payload.time_window.as_str()) {
+    if !["5m", "15m", "1h", "24h"].contains(&payload.time_window.as_str()) {
         return Err(StatusCode::BAD_REQUEST);
     }
 

@@ -26,9 +26,10 @@ pub async fn get_metrics(
     let mut windows: HashMap<String, HashMap<String, i64>> = HashMap::new();
     for (event_type, window) in counts {
         let mut w = HashMap::new();
-        w.insert("one_min".to_string(), window.one_min);
         w.insert("five_min".to_string(), window.five_min);
+        w.insert("fifteen_min".to_string(), window.fifteen_min);
         w.insert("one_hour".to_string(), window.one_hour);
+        w.insert("one_day".to_string(), window.one_day);
         windows.insert(event_type, w);
     }
 
