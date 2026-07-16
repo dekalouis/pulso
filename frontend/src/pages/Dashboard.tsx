@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { getMetrics, type MetricsResponse } from '../api/metrics';
 import MetricsChart from '../components/MetricsChart';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { useTenant } from '../hooks/useTenant';
 
 export default function Dashboard() {
   const [data, setData] = useState<MetricsResponse | null>(null);
+  const tenantName = useTenant();
 
   useEffect(() => {
     const load = () => getMetrics().then(setData).catch(console.error);
@@ -20,9 +22,16 @@ export default function Dashboard() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl tracking-tight text-foreground">Dashboard</h1>
-        <div className="flex items-center gap-2 font-mono text-xs tracking-widest text-muted-foreground uppercase">
-          <span className="led-live h-1.5 w-1.5 rounded-full bg-primary" />
-          Live
+        <div className="flex flex-col items-end gap-1">
+          {tenantName && (
+            <span className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
+              {tenantName}
+            </span>
+          )}
+          <div className="flex items-center gap-2 font-mono text-xs tracking-widest text-muted-foreground uppercase">
+            <span className="led-live h-1.5 w-1.5 rounded-full bg-primary" />
+            Live
+          </div>
         </div>
       </div>
 

@@ -11,3 +11,9 @@ pub struct ApiKeyResponse {
     pub api_key: String,
     pub tenant_name: String,
 }
+
+#[derive(Debug, Serialize)]
+pub struct TenantInfo {
+    pub tenant_id: String,
+    pub tenant_name: String,
+}

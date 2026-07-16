@@ -57,7 +57,7 @@ async fn main() {
         // .route("/events", post(create_event).get(events))
         // .route_layer(axum_middleware::from_fn_with_state(pool.clone(), require_api_key))
         .merge(routes::event::routes(state.clone()))
-        .merge(routes::tenant::routes())
+        .merge(routes::tenant::routes(state.clone()))
         .merge(routes::alerts::routes(state.clone()))
         .route("/health", get(health_check))
         .layer(cors)
@@ -65,5 +65,10 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Listening on http://localhost:3000");
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }
