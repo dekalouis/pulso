@@ -11,6 +11,8 @@ use crate::state::AppState;
 pub struct MetricsResponse {
     pub tenant_id: String,
     pub windows: HashMap<String, HashMap<String, i64>>,
+    /// per event type: [bucket_start_ms, count] pairs, 1-min buckets over the last hour
+    pub series: HashMap<String, Vec<(i64, i64)>>,
 }
 
 pub async fn get_metrics(
@@ -24,17 +26,21 @@ pub async fn get_metrics(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut windows: HashMap<String, HashMap<String, i64>> = HashMap::new();
+    let mut series: HashMap<String, Vec<(i64, i64)>> = HashMap::new();
     for (event_type, window) in counts {
         let mut w = HashMap::new();
-        w.insert("one_min".to_string(), window.one_min);
         w.insert("five_min".to_string(), window.five_min);
+        w.insert("fifteen_min".to_string(), window.fifteen_min);
         w.insert("one_hour".to_string(), window.one_hour);
-        windows.insert(event_type, w);
+        w.insert("one_day".to_string(), window.one_day);
+        windows.insert(event_type.clone(), w);
+        series.insert(event_type, window.series);
     }
 
     Ok(Json(MetricsResponse {
         tenant_id: tenant.tenant_id,
         windows,
+        series,
     }))
 }
 

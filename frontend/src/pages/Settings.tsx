@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { Check, Copy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { useTenant } from '../hooks/useTenant';
 
 export default function Settings() {
   const navigate = useNavigate();
   const key = getApiKey();
+  const tenantName = useTenant();
   const [copied, setCopied] = useState(false);
 
   function logout() {
@@ -25,6 +27,16 @@ export default function Settings() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-2xl tracking-tight text-foreground">Settings</h1>
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
+            Tenant
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="font-mono text-sm text-foreground">{tenantName ?? '—'}</p>
+        </CardContent>
+      </Card>
       <Card className="max-w-lg">
         <CardHeader>
           <CardTitle className="font-mono text-xs tracking-widest text-muted-foreground uppercase">

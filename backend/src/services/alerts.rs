@@ -15,9 +15,10 @@ pub async fn evaluate_rules(
 
     for rule in rules {
         let window_ms: f64 = match rule.time_window.as_str() {
-            "1m" => 60_000.0,
             "5m" => 300_000.0,
-            "1hr" => 3_600_000.0,
+            "15m" => 900_000.0,
+            "1h" => 3_600_000.0,
+            "24h" => 86_400_000.0,
             _    => continue,
         };
 

@@ -1,7 +1,8 @@
 // the actual logic (like controllers)
 
-use axum::{extract::State, Extension, Json};
-use axum::http::StatusCode;
+use axum::{extract::{ConnectInfo, State}, Extension, Json};
+use axum::http::{HeaderMap, StatusCode};
+use std::net::SocketAddr;
 // use sqlx::PgPool;
 use crate::middleware::auth::Tenant;
 use crate::models::event::{EventInput, Event};
@@ -16,10 +17,20 @@ use crate::services::metrics;
 pub async fn create_event(
     // State(pool): State<PgPool>,
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Extension(tenant): Extension<Tenant>,
+    headers: HeaderMap,
     Json(payload): Json<EventInput>,
 // ) -> &'static str {
 ) -> Result<&'static str, StatusCode> {
+    eprintln!(
+        "[DIAG] create_event called at {} from={} ua={:?} tenant={} event_type={}",
+        chrono::Utc::now().to_rfc3339(),
+        addr,
+        headers.get("user-agent"),
+        tenant.tenant_id,
+        payload.event_type,
+    );
     sqlx::query("INSERT INTO events (tenant_id, event_type) VALUES ($1, $2)")
         .bind(&tenant.tenant_id)
         .bind(&payload.event_type)

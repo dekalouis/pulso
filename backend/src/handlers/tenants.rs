@@ -1,9 +1,10 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, http::StatusCode, Extension, Json};
 use sha2::{Digest, Sha256};
 // use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::models::tenant::{ApiKeyResponse, CreateTenantInput};
+use crate::middleware::auth::Tenant;
+use crate::models::tenant::{ApiKeyResponse, CreateTenantInput, TenantInfo};
 use crate::state::AppState;
 
 pub async fn create_tenant(
@@ -28,4 +29,8 @@ pub async fn create_tenant(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(ApiKeyResponse { tenant_id, api_key: raw_key, tenant_name }))
+}
+
+pub async fn get_current_tenant(Extension(tenant): Extension<Tenant>) -> Json<TenantInfo> {
+    Json(TenantInfo { tenant_id: tenant.tenant_id, tenant_name: tenant.tenant_name })
 }
